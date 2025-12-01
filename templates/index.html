@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Kazıyıcı (JSON Çıktılı)</title>
+    <style>
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #007bff;
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 2em;
+        }
+        form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 40px;
+            align-items: center;
+        }
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 12px;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        button {
+            padding: 12px 25px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .error {
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            font-weight: bold;
+        }
+        .json-output {
+            margin-top: 30px;
+        }
+        .json-output h2 {
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+            color: #007bff;
+            font-size: 1.5em;
+        }
+        .json-container {
+            position: relative;
+            background-color: #272822; /* Kod blokları için koyu arka plan */
+            color: #f8f8f2; /* Açık metin */
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid #1e1e1e;
+        }
+        .json-container pre {
+            margin: 0;
+            font-family: Consolas, monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        /* Kopyalama ve İndirme butonlarının konteyneri */
+        .action-buttons {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 5px;
+        }
+        .action-buttons button {
+            background: #6272a4;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8em;
+            font-weight: normal; /* Normal düğmelerden ayırmak için */
+            transition: background 0.2s;
+        }
+        .action-buttons button:hover {
+            background: #8b95c3;
+        }
+
+        /* Mobil uyumluluk */
+        @media (max-width: 600px) {
+            form { flex-direction: column; }
+            input[type="text"], button { width: 100%; }
+            .container { padding: 15px; margin: 10px; }
+            .action-buttons {
+                position: static;
+                margin-top: 10px;
+                justify-content: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Web Sayfası İçeriği Kazıyıcı</h1>
+
+        <form method="POST">
+            <input type="text" name="url_address" 
+                   placeholder="Kazınacak Web Adresi (örn: https://turnateknoloji.com)"
+                   value="{{ url_input if url_input else '' }}"
+                   required>
+            <button type="submit">Kazımayı Başlat</button>
+        </form>
+
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <!-- BURASI SONUÇLARIN GÖRÜNDÜĞÜ ALAN! -->
+        {% if json_results %}
+            <div class="json-output">
+                <h2>Kazıma Sonuçları (JSON Formatında)</h2>
+                <div class="json-container">
+                    <div class="action-buttons">
+                        <!-- İndirme butonu eklendi -->
+                        <button onclick="downloadJson()">JSON İndir</button>
+                        <!-- Kopyalama butonu mevcut -->
+                        <button onclick="copyToClipboard()">Kopyala</button>
+                    </div>
+                    
+                    <!-- Python'dan gelen JSON metni buraya yazdırılır -->
+                    <pre id="jsonOutputArea">{{ json_results }}</pre>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        // Kopyalama fonksiyonu
+        function copyToClipboard() {
+            const jsonText = document.getElementById('jsonOutputArea').innerText;
+            
+            // Kopyalama işlemini gerçekleştir
+            const tempInput = document.createElement('textarea');
+            tempInput.value = jsonText;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            
+            try {
+                // document.execCommand('copy') tarayıcı kısıtlamaları nedeniyle daha güvenilir
+                const successful = document.execCommand('copy');
+                const button = event.target; // Tıklanan butonu yakala
+                button.textContent = successful ? 'Kopyalandı!' : 'Kopyalama Başarısız.';
+                
+                setTimeout(() => {
+                    button.textContent = 'Kopyala';
+                }, 2000);
+            } catch (err) {
+                console.error('Kopyalama hatası:', err);
+                event.target.textContent = 'Hata!';
+            }
+            
+            document.body.removeChild(tempInput);
+        }
+
+        // İndirme fonksiyonu
+        function downloadJson() {
+            const jsonText = document.getElementById('jsonOutputArea').innerText;
+            
+            // JSON verisini Blob nesnesine dönüştür
+            const blob = new Blob([jsonText], { type: 'application/json' });
+            
+            // İndirme işlemini tetikle
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'kazima_sonuclari.json'; // Dosya adı
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url); // Belleği temizle
+            
+            // Kullanıcı geri bildirimi
+            const button = event.target;
+            button.textContent = 'İndiriliyor!';
+            setTimeout(() => {
+                button.textContent = 'JSON İndir';
+            }, 1500);
+        }
+    </script>
+</body>
+</html>
